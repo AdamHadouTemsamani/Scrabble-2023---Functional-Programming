@@ -97,6 +97,7 @@ module internal Eval
          |IsDigit exp -> charEval exp >>= fun x -> Char.IsDigit x |> ret
          |IsLetter exp -> charEval exp >>= fun x -> Char.IsLetter x |> ret
          |IsVowel exp -> charEval exp >>= fun x -> isVowel x |> ret
+         |IsConsonant exp -> charEval exp >>=  fun x -> isVowel x |> not |> ret
 
 
     type stm =                (* statements *)
@@ -114,13 +115,7 @@ module internal Eval
         |Skip -> ret ()
         |Seq (stA,stB) -> stmntEval stA >>>= stmntEval stB
         |ITE (bEx,stA,stB) -> boolEval bEx >>= fun x -> if x then stmntEval stA else stmntEval stB
-        |While (bEx,s) ->  boolEval bEx >>=
-            (fun b ->
-                if b
-                then
-                    stmntEval(While (bEx, s))
-                else
-                    ret ()) 
+        |While (bEx,s) ->  boolEval bEx >>= (fun b -> if b then stmntEval(While (bEx, s)) else ret ()) 
 
 (* Part 3 (Optional) *)
 
