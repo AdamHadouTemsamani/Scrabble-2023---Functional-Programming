@@ -2,11 +2,15 @@
 
 module internal Eval
 
+    open System
     open StateMonad
 
-    let add a b = failwith "Not implemented"      
-    let div a b = failwith "Not implemented"      
-
+    let add a b = a >>= fun x -> b >>= fun y -> ret (x + y)
+    let sub a b = a >>= fun x -> b >>= fun y -> ret (x - y)
+    let mul a b = a >>= fun x -> b >>= fun y -> ret (x * y)
+    let div a b = a >>= fun x -> b >>= fun y -> if y = 0 then fail DivisionByZero else ret (x / y)
+    let modu a b = a >>= fun x -> b >>= fun y -> if y = 0 then fail DivisionByZero else ret (x % y)
+    
     type aExp =
         | N of int
         | V of string
@@ -38,6 +42,8 @@ module internal Eval
 
        | IsVowel of cExp      (* check for vowel *)
        | IsConsonant of cExp  (* check for constant *)
+       | IsLetter of cExp     (* check for letter *)
+       | IsDigit of cExp
 
     let (.+.) a b = Add (a, b)
     let (.-.) a b = Sub (a, b)
@@ -57,11 +63,40 @@ module internal Eval
     let (.>=.) a b = ~~(a .<. b)                (* numeric greater than or equal to *)
     let (.>.) a b = ~~(a .=. b) .&&. (a .>=. b) (* numeric greater than *)    
 
-    let arithEval a : SM<int> = failwith "Not implemented"      
+    let binop f a b = a >>= fun x -> b >>= fun y -> ret (f x y)
+    let isVowel c = List.contains (Char.ToUpper c) ['A';'E';'I';'O';'U';'Æ';'Ø';'Å']
+    let rec arithEval a : SM<int> =
+        match a with
+         |N n -> ret n
+         |V v -> lookup v
+         |WL -> wordLength
+         |PV exp -> arithEval exp >>= pointValue 
+         |Add (a,b) -> add (arithEval a) (arithEval b)
+         |Sub (a,b) -> arithEval a |> sub <| arithEval b
+         |Mul (a,b) -> arithEval a |> mul <| arithEval b
+         |Div (a,b) -> arithEval a |> div <| arithEval b
+         |Mod (a,b) -> arithEval a |> modu <| arithEval b
+         |CharToInt c -> charEval c >>= fun x -> int x |> ret
 
-    let charEval c : SM<char> = failwith "Not implemented"      
+    and charEval c : SM<char> =
+        match c with
+         |C c -> ret c
+         |ToUpper exp -> charEval exp >>= fun x -> Char.ToUpper x |> ret
+         |ToLower exp -> charEval exp >>= fun x -> Char.ToLower x |> ret
+         |CV exp -> arithEval exp >>= fun x -> characterValue x
+         |IntToChar a -> arithEval a >>= fun x -> char x |> ret
 
-    let boolEval b : SM<bool> = failwith "Not implemented"
+    and boolEval b : SM<bool> =
+        match b with
+         |TT -> ret true
+         |FF -> ret false
+         |AEq (expA,expB) -> binop (=) (arithEval expA) (arithEval expB)
+         |ALt (expA,expB) -> binop (<) (arithEval expA) (arithEval expB)
+         |Not exp -> boolEval exp >>= fun x -> not x |> ret
+         |Conj (expA,expB) ->binop (&&) (boolEval expA) (boolEval expB)
+         |IsDigit exp -> charEval exp >>= fun x -> Char.IsDigit x |> ret
+         |IsLetter exp -> charEval exp >>= fun x -> Char.IsLetter x |> ret
+         |IsVowel exp -> charEval exp >>= fun x -> isVowel x |> ret
 
 
     type stm =                (* statements *)
@@ -72,7 +107,20 @@ module internal Eval
     | ITE of bExp * stm * stm (* if-then-else statement *)
     | While of bExp * stm     (* while statement *)
 
-    let rec stmntEval stmnt : SM<unit> = failwith "Not implemented"
+    let rec stmntEval stmnt : SM<unit> =
+        match stmnt with
+        |Declare name -> declare name
+        |Ass (name,a) -> arithEval a >>= fun x -> update name x
+        |Skip -> ret ()
+        |Seq (stA,stB) -> stmntEval stA >>>= stmntEval stB
+        |ITE (bEx,stA,stB) -> boolEval bEx >>= fun x -> if x then stmntEval stA else stmntEval stB
+        |While (bEx,s) ->  boolEval bEx >>=
+            (fun b ->
+                if b
+                then
+                    stmntEval(While (bEx, s))
+                else
+                    ret ()) 
 
 (* Part 3 (Optional) *)
 
