@@ -114,7 +114,13 @@ module internal Eval
         |Skip -> ret ()
         |Seq (stA,stB) -> stmntEval stA >>>= stmntEval stB
         |ITE (bEx,stA,stB) -> boolEval bEx >>= fun x -> if x then stmntEval stA else stmntEval stB
-        |While (bEx,s) -> boolEval bEx >>= fun x -> if x then stmntEval (While(bEx,s)) then ret ()
+        |While (bEx,s) ->  boolEval bEx >>=
+            (fun b ->
+                if b
+                then
+                    stmntEval(While (bEx, s))
+                else
+                    ret ()) 
 
 (* Part 3 (Optional) *)
 
