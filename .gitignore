@@ -99,3 +99,8 @@ ScrabbleTemplate/ScrabbleTemplate/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.fspro
 ScrabbleTemplate/ScrabbleTemplate/ScrabbleBot/obj/rider.project.restore.info
 ScrabbleTemplate/ScrabbleTemplate/ScrabbleTemplate/obj/Debug/net7.0/ScrabbleTemplate.fsproj.AssemblyReference.cache
 ScrabbleTemplate/ScrabbleTemplate/ScrabbleTemplate/obj/rider.project.restore.info
+
+/ScrabbleTemplate/ScrabbleTemplate/ScrabbleBot/bin/
+/ScrabbleTemplate/ScrabbleTemplate/ScrabbleBot/obj/
+/ScrabbleTemplate/ScrabbleTemplate/ScrabbleTemplate/bin/
+/ScrabbleTemplate/ScrabbleTemplate/ScrabbleTemplate/obj/
