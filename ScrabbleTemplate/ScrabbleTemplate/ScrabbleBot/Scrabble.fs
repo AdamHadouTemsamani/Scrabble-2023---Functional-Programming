@@ -58,6 +58,10 @@ module State =
     let updateBoard (st:state) addedTiles =
         let updated = List.fold (fun newBoard newTile -> Map.add (fst newTile) (snd newTile) newBoard) st.board.placedTiles addedTiles
         {st with board = {st.board with placedTiles = updated}}
+        
+    let updateHand (st:state) placedTiles recievedTiles =
+        let updated = List.fold (fun newHand tile -> MultiSet.remove (fst (snd tile)) 1u newHand) st.hand placedTiles
+        {st with hand = updated}
 
 module Scrabble =
     open System.Threading
@@ -82,6 +86,7 @@ module Scrabble =
             | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = State.updateBoard st placedTiles// This state needs to be updated
+                let st' = State.updateHand st' placedTiles newPieces
                 aux st'
             | RCM (CMPlayed (pid, placedTiles, points)) ->
                 (* Successful play by other player. Update your state *)
