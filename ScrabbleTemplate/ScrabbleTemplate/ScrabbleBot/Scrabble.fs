@@ -75,15 +75,15 @@ module Scrabble =
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
-            | RCM (CMPlaySuccess(ms, points, newPieces)) ->
+            | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = st // This state needs to be updated
                 aux st'
-            | RCM (CMPlayed (pid, ms, points)) ->
+            | RCM (CMPlayed (pid, placedTiles, points)) ->
                 (* Successful play by other player. Update your state *)
                 let st' = st // This state needs to be updated
                 aux st'
-            | RCM (CMPlayFailed (pid, ms)) ->
+            | RCM (CMPlayFailed (pid, attemptedMove)) ->
                 (* Failed play. Update your state *)
                 let st' = st // This state needs to be updated
                 aux st'
