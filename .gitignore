@@ -94,3 +94,8 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 # End of https://www.toptal.com/developers/gitignore/api/rider
+ScrabbleTemplate/ScrabbleTemplate/.idea/.idea.ScrabbleTemplate/.idea/vcs.xml
+ScrabbleTemplate/ScrabbleTemplate/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.fsproj.AssemblyReference.cache
+ScrabbleTemplate/ScrabbleTemplate/ScrabbleBot/obj/rider.project.restore.info
+ScrabbleTemplate/ScrabbleTemplate/ScrabbleTemplate/obj/Debug/net7.0/ScrabbleTemplate.fsproj.AssemblyReference.cache
+ScrabbleTemplate/ScrabbleTemplate/ScrabbleTemplate/obj/rider.project.restore.info
