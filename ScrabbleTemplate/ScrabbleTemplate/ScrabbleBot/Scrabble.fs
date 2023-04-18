@@ -54,6 +54,10 @@ module State =
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
+    
+    let updateBoard (st:state) addedTiles =
+        let updated = List.fold (fun newBoard newTile -> Map.add (fst newTile) (snd newTile) newBoard) st.board.placedTiles addedTiles
+        {st with board = {st.board with placedTiles = updated}}
 
 module Scrabble =
     open System.Threading
@@ -77,11 +81,11 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = st // This state needs to be updated
+                let st' = State.updateBoard st placedTiles// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, placedTiles, points)) ->
                 (* Successful play by other player. Update your state *)
-                let st' = st // This state needs to be updated
+                let st' = State.updateBoard st placedTiles // This state needs to be updated
                 aux st'
             | RCM (CMPlayFailed (pid, attemptedMove)) ->
                 (* Failed play. Update your state *)

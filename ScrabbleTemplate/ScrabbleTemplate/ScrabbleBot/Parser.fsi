@@ -15,7 +15,7 @@ module internal Parser
         center        : coord
         defaultSquare : square
         squares       : boardFun2
-        placedTiles   : Map<coord, char * uint>
+        placedTiles   : Map<coord, uint32 *(char*int)>
     }
 
     val mkBoard : boardProg -> board
