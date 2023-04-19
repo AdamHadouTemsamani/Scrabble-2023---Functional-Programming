@@ -19,6 +19,13 @@ bin
 .ionide/
 .fake
 .idea
+*.json
+*.cache
+*.info
+*.txt
+*.dll
+*.pdb
+*.props
 # User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
