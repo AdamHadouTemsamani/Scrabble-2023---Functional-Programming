@@ -18,6 +18,7 @@ bin
 !.paket/paket.bootstrapper.exe
 .ionide/
 .fake
+.idea
 # User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
