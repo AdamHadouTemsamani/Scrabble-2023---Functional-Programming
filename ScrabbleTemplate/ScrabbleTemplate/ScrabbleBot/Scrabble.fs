@@ -63,10 +63,75 @@ module State =
         let reduced = List.fold (fun newHand tile -> MultiSet.remove (fst (snd tile)) 1u newHand) st.hand placedTiles
         let updated = List.fold (fun newHand tile ->MultiSet.add (fst tile) (snd tile) newHand) reduced receivedTiles
         {st with hand = updated}
+    
 
 module Scrabble =
     open System.Threading
-
+    
+    type dir =
+        |RIGHT
+        |DOWN
+        
+    let nextCoord (x, y) dir =
+        match dir with
+            |RIGHT -> (x+1,y)
+            |DOWN -> (x, y+1)
+    
+    let rec mkWordFromTile acc tile dict (st : State.state) (tiles:Map<uint32,Set<char*int>>) =
+        let temp = Dictionary.step (fst tile) dict
+        match temp with
+        |None-> acc
+        |Some(b,dict) ->
+            if b then
+                tile::acc
+            else
+                MultiSet.fold (fun acc1 elem ->
+                    let handTile = Map.find elem tiles |> Set.toList |> List.item 0
+                    mkWordFromTile handTile::acc1 (fst handTile) dict st tiles) acc st.hand
+    
+    let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
+    
+    let rec mkWordFromCoord acc coord dir dict hand tiles tilesOnBoard =
+        match Map.tryFind coord tilesOnBoard with
+        |None ->
+            MultiSet.fold (fun acc1 elem ->
+                    let handTile = Map.find elem tiles |> Set.toList |> List.item 0
+                    let newHand = MultiSet.remove elem 1u hand
+                    let word = mkWordFromCoord acc1 (nextCoord coord dir) dir dict newHand tiles tilesOnBoard
+                    bestWord acc1 word
+                    ) acc hand
+        |Some (_,(cv, _)) ->
+            match Dictionary.step cv dict with
+            |None -> acc
+            |Some (b,d) -> mkWordFromCoord acc (nextCoord coord dir) dir d hand tiles tilesOnBoard
+            
+    
+    let mkMove tiles (st : State.state) =
+        if Map.isEmpty st.board.placedTiles then
+            //Make word based on hand
+            printf()
+            else
+                //Fun :)
+                Map.iter (fun key value ->
+                    let stepRes = Dictionary.step (fst (snd value)) st.dict
+                    match stepRes with
+                        | None -> None
+                        | Some(_, dict) ->
+                            MultiSet.fold (fun acc elem ->
+                                let tile = Map.find elem tiles |> Set.toList |> List.item 0
+                                let stepB = Dictionary.step (fst tile) dict
+                                match stepB with
+                                    | None -> None
+                                    | Some(b,dict) ->
+                                        if b then
+                                            
+                                 ) [] st.hand
+                                
+                        
+                    
+                    ) st.board.placedTiles
+            
+    
     let playGame cstream pieces (st : State.state) =
 
         let rec aux (st : State.state) =
