@@ -37,7 +37,7 @@ module RegEx =
 
 module State = 
     // Make sure to keep your state localised in this module. It makes your life a whole lot easier.
-    // Currently, it only keeps track of your hand, your player numer, your board, and your dictionary,
+    // Currently, it only keeps track of your hand, your player number, your board, and your dictionary,
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
 
@@ -59,8 +59,9 @@ module State =
         let updated = List.fold (fun newBoard newTile -> Map.add (fst newTile) (snd newTile) newBoard) st.board.placedTiles addedTiles
         {st with board = {st.board with placedTiles = updated}}
         
-    let updateHand (st:state) placedTiles recievedTiles =
-        let updated = List.fold (fun newHand tile -> MultiSet.remove (fst (snd tile)) 1u newHand) st.hand placedTiles
+    let updateHand (st:state) placedTiles receivedTiles =
+        let reduced = List.fold (fun newHand tile -> MultiSet.remove (fst (snd tile)) 1u newHand) st.hand placedTiles
+        let updated = List.fold (fun newHand tile ->MultiSet.add (fst tile) (snd tile) newHand) reduced receivedTiles
         {st with hand = updated}
 
 module Scrabble =
