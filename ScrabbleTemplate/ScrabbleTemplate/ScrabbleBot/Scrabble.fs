@@ -77,59 +77,40 @@ module Scrabble =
             |RIGHT -> (x+1,y)
             |DOWN -> (x, y+1)
     
-    let rec mkWordFromTile acc tile dict (st : State.state) (tiles:Map<uint32,Set<char*int>>) =
-        let temp = Dictionary.step (fst tile) dict
-        match temp with
-        |None-> acc
-        |Some(b,dict) ->
-            if b then
-                tile::acc
-            else
-                MultiSet.fold (fun acc1 elem ->
-                    let handTile = Map.find elem tiles |> Set.toList |> List.item 0
-                    mkWordFromTile handTile::acc1 (fst handTile) dict st tiles) acc st.hand
+    // let rec mkWordFromTile acc tile dict (st : State.state) (tiles:Map<uint32,Set<char*int>>) =
+    //     let temp = Dictionary.step (fst tile) dict
+    //     match temp with
+    //     |None-> acc
+    //     |Some(b,dict) ->
+    //         if b then
+    //             tile::acc
+    //         else
+    //             MultiSet.fold (fun acc1 elem ->
+    //                 let handTile = Map.find elem tiles |> Set.toList |> List.item 0
+    //                 mkWordFromTile handTile::acc1 (fst handTile) dict st tiles) acc st.hand
     
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
-    
+  
     let rec mkWordFromCoord acc coord dir dict hand tiles tilesOnBoard =
         match Map.tryFind coord tilesOnBoard with
         |None ->
-            MultiSet.fold (fun acc1 elem ->
-                    let handTile = Map.find elem tiles |> Set.toList |> List.item 0
-                    let newHand = MultiSet.remove elem 1u hand
-                    let word = mkWordFromCoord acc1 (nextCoord coord dir) dir dict newHand tiles tilesOnBoard
-                    bestWord acc1 word
-                    ) acc hand
+            MultiSet.fold (fun acc1 key _ ->
+                    let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
+                    let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
+                    let newHand = MultiSet.remove key 1u hand
+                    match Dictionary.step handTile dict with
+                    |None -> acc1
+                    |Some (b,d) ->
+                        let tilePlacement = (coord,(key,(handTile,pointValue)))
+                        let word = tilePlacement::(mkWordFromCoord acc1 (nextCoord coord dir) dir d newHand tiles tilesOnBoard) 
+                        if b then bestWord acc1 word else acc1
+                    ) acc hand 
         |Some (_,(cv, _)) ->
             match Dictionary.step cv dict with
             |None -> acc
-            |Some (b,d) -> mkWordFromCoord acc (nextCoord coord dir) dir d hand tiles tilesOnBoard
+            |Some (_,d) -> mkWordFromCoord acc (nextCoord coord dir) dir d hand tiles tilesOnBoard
             
-    
-    let mkMove tiles (st : State.state) =
-        if Map.isEmpty st.board.placedTiles then
-            //Make word based on hand
-            printf()
-            else
-                //Fun :)
-                Map.iter (fun key value ->
-                    let stepRes = Dictionary.step (fst (snd value)) st.dict
-                    match stepRes with
-                        | None -> None
-                        | Some(_, dict) ->
-                            MultiSet.fold (fun acc elem ->
-                                let tile = Map.find elem tiles |> Set.toList |> List.item 0
-                                let stepB = Dictionary.step (fst tile) dict
-                                match stepB with
-                                    | None -> None
-                                    | Some(b,dict) ->
-                                        if b then
-                                            
-                                 ) [] st.hand
-                                
-                        
-                    
-                    ) st.board.placedTiles
+
             
     
     let playGame cstream pieces (st : State.state) =
@@ -139,11 +120,12 @@ module Scrabble =
 
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-            let input =  System.Console.ReadLine()
-            let move = RegEx.parseMove input
-
+            // let input =  System.Console.ReadLine()
+            let moveRight = mkWordFromCoord [] (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
+            let moveDown = mkWordFromCoord [] (0,0) DOWN st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
+            let move = bestWord moveRight moveDown
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move)
+            send cstream (SMPlay move) //
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
