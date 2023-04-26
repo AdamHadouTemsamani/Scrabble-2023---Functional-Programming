@@ -91,25 +91,31 @@ module Scrabble =
     
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
-    let rec mkWordFromCoord acc coord dir dict hand tiles tilesOnBoard =
+    let rec mkWordFromCoord longestWord acc coord dir dict hand tiles tilesOnBoard =
         match Map.tryFind coord tilesOnBoard with
         |None ->
-            MultiSet.fold (fun acc1 key _ ->
+            MultiSet.fold (fun best key _ ->
                     let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
                     let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
+                    let tilePlacement = (coord,(key,(handTile,pointValue)))
                     let newHand = MultiSet.remove key 1u hand
                     match Dictionary.step handTile dict with
-                    |None -> acc1
+                    |None -> best
                     |Some (b,d) ->
-                        let tilePlacement = (coord,(key,(handTile,pointValue)))
-                        let word = tilePlacement::(mkWordFromCoord acc1 (nextCoord coord dir) dir d newHand tiles tilesOnBoard) 
-                        if b then bestWord acc1 word else acc1
-                    ) acc hand 
+                        let currentWord = tilePlacement :: acc
+                        let newBest = if b then bestWord best currentWord else best
+                        mkWordFromCoord newBest currentWord (nextCoord coord dir) dir d newHand tiles tilesOnBoard
+                        
+                            // debugPrint(sprintf "currentWord: %A\n" currentWord)
+                            // debugPrint(sprintf "word: %A\n" word)
+                            // debugPrint(sprintf "local acc: %A\n" best)
+                            //bestWord currentWord word |> bestWord best else best
+                    ) longestWord hand 
         |Some (_,(cv, _)) ->
             match Dictionary.step cv dict with
-            |None -> acc
-            |Some (_,d) -> mkWordFromCoord acc (nextCoord coord dir) dir d hand tiles tilesOnBoard
-            
+            |None -> longestWord
+            |Some (_,d) -> mkWordFromCoord longestWord acc (nextCoord coord dir) dir d hand tiles tilesOnBoard
+           
 
             
     
@@ -121,14 +127,14 @@ module Scrabble =
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             // let input =  System.Console.ReadLine()
-            let moveRight = mkWordFromCoord [] (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
-            let moveDown = mkWordFromCoord [] (0,0) DOWN st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
-            let move = bestWord moveRight moveDown
+            let moveRight = mkWordFromCoord [] [] (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
+            let moveDown = mkWordFromCoord [] [] (0,0) DOWN st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
+            let move = bestWord moveRight []
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             send cstream (SMPlay move) //
 
             let msg = recv cstream
-            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->

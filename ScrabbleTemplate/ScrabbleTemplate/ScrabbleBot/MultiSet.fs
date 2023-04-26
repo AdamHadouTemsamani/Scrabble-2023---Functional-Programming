@@ -14,7 +14,7 @@ module internal MultiSet
     let remove a n s =
             match n with
             |_ when contains a s = false -> s
-            |n when Map.find a s.contents <= n -> {contents =Map.add a 0u s.contents;setSize=(s.setSize - Map.find a s.contents)}
+            |n when Map.find a s.contents <= n -> {contents = Map.remove a s.contents; setSize=(s.setSize - Map.find a s.contents)}
             |n -> {contents = Map.add a (Map.find a s.contents - n) s.contents; setSize = s.setSize - n}
     let fold f acc s = Map.fold f acc s.contents
         
