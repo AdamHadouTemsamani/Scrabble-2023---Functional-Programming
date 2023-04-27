@@ -105,11 +105,7 @@ module Scrabble =
                         let currentWord = tilePlacement :: acc
                         let newBest = if b then bestWord best currentWord else best
                         mkWordFromCoord newBest currentWord (nextCoord coord dir) dir d newHand tiles tilesOnBoard
-                        
-                            // debugPrint(sprintf "currentWord: %A\n" currentWord)
-                            // debugPrint(sprintf "word: %A\n" word)
-                            // debugPrint(sprintf "local acc: %A\n" best)
-                            //bestWord currentWord word |> bestWord best else best
+
                     ) longestWord hand 
         |Some (_,(cv, _)) ->
             match Dictionary.step cv dict with
