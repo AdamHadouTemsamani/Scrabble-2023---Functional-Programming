@@ -77,6 +77,11 @@ module Scrabble =
         match dir with
             |RIGHT -> (x+1,y)
             |DOWN -> (x, y+1)
+            
+    let prevCoord (x,y) dir =
+        match dir with
+            |RIGHT -> (x-1,y)
+            |DOWN -> (x, y-1)
     
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
@@ -97,9 +102,12 @@ module Scrabble =
                             aux newBest currentWord (nextCoord coord dir) d newHand
                         ) longestWord hand 
             |Some (_,(cv, _)) ->
-                match Dictionary.step cv dict with
-                |None -> longestWord
-                |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand
+                match Map.tryFind (prevCoord coord dir) tilesOnBoard with
+                |None ->
+                    match Dictionary.step cv dict with
+                    |None -> longestWord
+                    |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand
+                |Some (_,(_,_)) -> longestWord
         aux [] [] startChoord startDict startHand
     
     let playGame cstream pieces (st : State.state) =
