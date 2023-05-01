@@ -30,7 +30,6 @@ module RegEx =
         Seq.toList
 
  module Print =
-
     let printHand pieces hand =
         hand |>
         MultiSet.fold (fun _ x i -> forcePrint (sprintf "%d -> (%A, %d)\n" x (Map.find x pieces) i)) ()
@@ -46,9 +45,11 @@ module State =
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
+        //player turn? - uint32
     }
 
-    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h }
+    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h } //keep track of player turn here
+    //let newMkState som tager højder for kun de nødvendige ting - word, playerId, playerTurn, board, numberofplayer(hvis vi gerne vil tage højde for mere end 2)
 
     let board st         = st.board
     let dict st          = st.dict
@@ -77,55 +78,49 @@ module Scrabble =
             |RIGHT -> (x+1,y)
             |DOWN -> (x, y+1)
     
-    // let rec mkWordFromTile acc tile dict (st : State.state) (tiles:Map<uint32,Set<char*int>>) =
-    //     let temp = Dictionary.step (fst tile) dict
-    //     match temp with
-    //     |None-> acc
-    //     |Some(b,dict) ->
-    //         if b then
-    //             tile::acc
-    //         else
-    //             MultiSet.fold (fun acc1 elem ->
-    //                 let handTile = Map.find elem tiles |> Set.toList |> List.item 0
-    //                 mkWordFromTile handTile::acc1 (fst handTile) dict st tiles) acc st.hand
-    
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
-    let rec mkWordFromCoord longestWord acc coord dir dict hand tiles tilesOnBoard =
-        match Map.tryFind coord tilesOnBoard with
-        |None ->
-            MultiSet.fold (fun best key _ ->
-                    let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
-                    let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
-                    let tilePlacement = (coord,(key,(handTile,pointValue)))
-                    let newHand = MultiSet.remove key 1u hand
-                    match Dictionary.step handTile dict with
-                    |None -> best
-                    |Some (b,d) ->
-                        let currentWord = tilePlacement :: acc
-                        let newBest = if b then bestWord best currentWord else best
-                        mkWordFromCoord newBest currentWord (nextCoord coord dir) dir d newHand tiles tilesOnBoard
-
-                    ) longestWord hand 
-        |Some (_,(cv, _)) ->
-            match Dictionary.step cv dict with
-            |None -> longestWord
-            |Some (_,d) -> mkWordFromCoord longestWord acc (nextCoord coord dir) dir d hand tiles tilesOnBoard
-           
-
-            
+    let mkWordFromCoord startChoord dir startDict startHand tiles tilesOnBoard =
+        let rec aux longestWord acc coord dict hand =
+            match Map.tryFind coord tilesOnBoard with
+            |None ->
+                MultiSet.fold (fun best key _ ->
+                        let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
+                        let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
+                        let tilePlacement = (coord,(key,(handTile,pointValue)))
+                        let newHand = MultiSet.remove key 1u hand
+                        match Dictionary.step handTile dict with
+                        |None -> best
+                        |Some (b,d) ->
+                            let currentWord = tilePlacement :: acc
+                            let newBest = if b then bestWord best currentWord else best
+                            aux newBest currentWord (nextCoord coord dir) d newHand
+                        ) longestWord hand 
+            |Some (_,(cv, _)) ->
+                match Dictionary.step cv dict with
+                |None -> longestWord
+                |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand
+        aux [] [] startChoord startDict startHand
     
     let playGame cstream pieces (st : State.state) =
 
-        let rec aux (st : State.state) =
+        let rec aux (st : State.state) = //shouldPlay bool inkluderet her? - if statement om det hele? hvis det er spiller tur, ellers så recv stream?
             Print.printHand pieces (State.hand st)
 
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             // let input =  System.Console.ReadLine()
-            let moveRight = mkWordFromCoord [] [] (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
-            let moveDown = mkWordFromCoord [] [] (0,0) DOWN st.dict st.hand pieces st.board.placedTiles //lav den om her - selve movet
-            let move = bestWord moveRight []
+            let move =
+                if Map.isEmpty st.board.placedTiles
+                then
+                    let moveRight = mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles 
+                    let moveDown = mkWordFromCoord (0,0) DOWN st.dict st.hand pieces st.board.placedTiles 
+                    bestWord moveRight moveDown
+                else
+                    let moveRight = Map.fold (fun acc key _ -> mkWordFromCoord key RIGHT st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
+                    let moveDown = Map.fold (fun acc key _ -> mkWordFromCoord key DOWN st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
+                    bestWord moveRight moveDown
+                    
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             send cstream (SMPlay move) //
 
@@ -137,20 +132,20 @@ module Scrabble =
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = State.updateBoard st placedTiles// This state needs to be updated
                 let st' = State.updateHand st' placedTiles newPieces
+                //let st' = mkState alle parameter (nyt board)
                 aux st'
             | RCM (CMPlayed (pid, placedTiles, points)) ->
                 (* Successful play by other player. Update your state *)
                 let st' = State.updateBoard st placedTiles // This state needs to be updated
+                //let st' = mkState alle parameter (nyt board)
                 aux st'
             | RCM (CMPlayFailed (pid, attemptedMove)) ->
                 (* Failed play. Update your state *)
                 let st' = st // This state needs to be updated
-                aux st'
+                aux st' 
             | RCM (CMGameOver _) -> ()
             | RCM a -> failwith (sprintf "not implmented: %A" a)
             | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
-
-
         aux st
 
     let startGame 

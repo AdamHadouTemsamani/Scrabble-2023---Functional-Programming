@@ -19,14 +19,14 @@ let spawnMultiples name dict bot =
 
 [<EntryPoint>]
 let main argv =
-    ScrabbleUtil.DebugPrint.toggleDebugPrint true // Change to false to supress debug output
+    ScrabbleUtil.DebugPrint.toggleDebugPrint false // Change to false to supress debug output
 
     System.Console.BackgroundColor <- System.ConsoleColor.Black
     System.Console.ForegroundColor <- System.ConsoleColor.White
     System.Console.Clear()
 
-    let board        = ScrabbleUtil.StandardBoard.standardBoard ()
-//    let board      = ScrabbleUtil.InfiniteBoard.infiniteBoard ()
+    //let board        = ScrabbleUtil.StandardBoard.standardBoard ()
+    let board      = ScrabbleUtil.InfiniteBoard.infiniteBoard ()
 
 //    let board      = ScrabbleUtil.RandomBoard.randomBoard ()
 //    let board      = ScrabbleUtil.RandomBoard.randomBoardSeed (Some 42)
