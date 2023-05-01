@@ -83,24 +83,41 @@ module Scrabble =
             |RIGHT -> (x-1,y)
             |DOWN -> (x, y-1)
     
+    let checkIfTilesAroundCoord coord dir tilesOnBoard =
+        match dir with
+                |RIGHT -> match Map.tryFind (prevCoord coord DOWN) tilesOnBoard with
+                          |None -> match Map.tryFind (nextCoord coord DOWN) tilesOnBoard with
+                                   |None -> true
+                                   |Some (_,(_,_)) -> false
+                          |Some (_,(_,_)) -> false
+                |DOWN -> match Map.tryFind (prevCoord coord RIGHT) tilesOnBoard with
+                          |None -> match Map.tryFind (nextCoord coord RIGHT) tilesOnBoard with
+                                   |None -> true
+                                   |Some (_,(_,_)) -> false
+                          |Some (_,(_,_)) -> false
+                            
+    
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
     let mkWordFromCoord startChoord dir startDict startHand tiles tilesOnBoard =
         let rec aux longestWord acc coord dict hand =
             match Map.tryFind coord tilesOnBoard with
             |None ->
-                MultiSet.fold (fun best key _ ->
-                        let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
-                        let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
-                        let tilePlacement = (coord,(key,(handTile,pointValue)))
-                        let newHand = MultiSet.remove key 1u hand
-                        match Dictionary.step handTile dict with
-                        |None -> best
-                        |Some (b,d) ->
-                            let currentWord = tilePlacement :: acc
-                            let newBest = if b then bestWord best currentWord else best
-                            aux newBest currentWord (nextCoord coord dir) d newHand
-                        ) longestWord hand 
+                if checkIfTilesAroundCoord coord dir tilesOnBoard then 
+                    MultiSet.fold (fun best key _ ->
+                            let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
+                            let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
+                            let tilePlacement = (coord,(key,(handTile,pointValue)))
+                            let newHand = MultiSet.remove key 1u hand
+                            match Dictionary.step handTile dict with
+                            |None -> best
+                            |Some (b,d) ->
+                                let currentWord = tilePlacement :: acc
+                                let newBest = if b then bestWord best currentWord else best
+                                aux newBest currentWord (nextCoord coord dir) d newHand
+                            ) longestWord hand
+                else
+                    longestWord
             |Some (_,(cv, _)) ->
                 match Map.tryFind (prevCoord coord dir) tilesOnBoard with
                 |None ->
