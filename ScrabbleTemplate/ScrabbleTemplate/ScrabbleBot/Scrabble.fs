@@ -1,4 +1,4 @@
-﻿namespace YourClientName
+﻿namespace DaiBakaBot
 
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
