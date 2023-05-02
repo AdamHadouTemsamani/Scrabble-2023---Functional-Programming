@@ -83,7 +83,7 @@ module Scrabble =
             |RIGHT -> (x-1,y)
             |DOWN -> (x, y-1)
     
-    let checkIfTilesAroundCoord coord dir tilesOnBoard =
+    let checkIfCoordNotSurrounded coord dir tilesOnBoard =
         match dir with
                 |RIGHT -> match Map.tryFind (prevCoord coord DOWN) tilesOnBoard with
                           |None -> match Map.tryFind (nextCoord coord DOWN) tilesOnBoard with
@@ -103,7 +103,7 @@ module Scrabble =
         let rec aux longestWord acc coord dict hand =
             match Map.tryFind coord tilesOnBoard with
             |None ->
-                if checkIfTilesAroundCoord coord dir tilesOnBoard then 
+                if checkIfCoordNotSurrounded coord dir tilesOnBoard then 
                     MultiSet.fold (fun best key _ ->
                             let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
                             let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
@@ -132,9 +132,6 @@ module Scrabble =
         let rec aux (st : State.state) = //shouldPlay bool inkluderet her? - if statement om det hele? hvis det er spiller tur, ellers så recv stream?
             Print.printHand pieces (State.hand st)
 
-            // remove the force print when you move on from manual input (or when you have learnt the format)
-            forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-            // let input =  System.Console.ReadLine()
             let move =
                 if Map.isEmpty st.board.placedTiles
                 then
@@ -150,7 +147,7 @@ module Scrabble =
             send cstream (SMPlay move) //
 
             let msg = recv cstream
-            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->
