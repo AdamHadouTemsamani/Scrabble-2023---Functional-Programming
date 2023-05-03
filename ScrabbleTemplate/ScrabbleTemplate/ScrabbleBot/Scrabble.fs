@@ -132,7 +132,7 @@ module Scrabble =
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
     let mkWordFromCoord startCoord dir startDict startHand tiles tilesOnBoard =
-        let rec aux longestWord acc coord dict hand =
+        let rec aux longestWord acc coord dict hand intersects =
             match Map.tryFind coord tilesOnBoard with
             |None ->
                 if checkIfCoordNotSurrounded coord dir tilesOnBoard then 
@@ -145,10 +145,10 @@ module Scrabble =
                             |None -> best
                             |Some (b,d) ->
                                 let currentWord = tilePlacement :: acc
-                                let newBest = if b && not (tileOnNextCoord coord dir tilesOnBoard)
+                                let newBest = if b && not (tileOnNextCoord coord dir tilesOnBoard) && intersects
                                               then bestWord best currentWord
                                               else best
-                                aux newBest currentWord (nextCoord coord dir) d newHand
+                                aux newBest currentWord (nextCoord coord dir) d newHand intersects
                             ) longestWord hand
                 else
                     longestWord
@@ -157,10 +157,10 @@ module Scrabble =
                 |None ->
                     match Dictionary.step cv dict with
                     |None -> longestWord
-                    |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand
+                    |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand true
                 |Some (_,(_,_)) -> longestWord
-        
-        aux [] [] startCoord startDict startHand
+        let first = startCoord = (0,0)
+        aux [] [] startCoord startDict startHand first
          
     
     let playGame cstream pieces (st : state) =
