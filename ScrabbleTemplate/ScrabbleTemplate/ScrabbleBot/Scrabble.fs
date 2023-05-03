@@ -134,20 +134,22 @@ module Scrabble =
     
     let playGame cstream pieces (st : State.state) =
 
-        let rec aux (st : State.state) = //shouldPlay bool inkluderet her? - if statement om det hele? hvis det er spiller tur, ellers så recv stream?
+        let rec aux (st : State.state) = 
             if (st.turnNumber % st.amountOfPlayers) + 1u = st.playerNumber then 
                 Print.printHand pieces (State.hand st)
 
                 let move =
                     if Map.isEmpty st.board.placedTiles
                     then
-                        let moveRight = mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles 
-                        let moveDown = mkWordFromCoord (0,0) DOWN st.dict st.hand pieces st.board.placedTiles 
-                        bestWord moveRight moveDown
+                        let findWord = Async.Parallel[async {return mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles};
+                                                      async {return mkWordFromCoord (0,0) DOWN st.dict st.hand pieces st.board.placedTiles}]
+                                                      |> Async.RunSynchronously
+                        bestWord findWord[0] findWord[1]
                     else
-                        let moveRight = Map.fold (fun acc key _ -> mkWordFromCoord key RIGHT st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
-                        let moveDown = Map.fold (fun acc key _ -> mkWordFromCoord key DOWN st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
-                        bestWord moveRight moveDown
+                        let findWord = Async.Parallel[async {return Map.fold (fun acc key _ -> mkWordFromCoord key RIGHT st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles};
+                                                      async {return Map.fold (fun acc key _ -> mkWordFromCoord key DOWN st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles}]
+                                                      |> Async.RunSynchronously
+                        bestWord findWord[0] findWord[1]
                         
                 //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
                 send cstream (SMPlay move) //
