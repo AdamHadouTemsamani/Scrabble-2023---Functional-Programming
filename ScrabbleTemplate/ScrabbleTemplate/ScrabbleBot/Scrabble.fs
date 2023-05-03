@@ -100,7 +100,11 @@ module Scrabble =
                                    |None -> true
                                    |Some (_,(_,_)) -> false
                           |Some (_,(_,_)) -> false
-                            
+    
+    let tileOnNextCoord coord dir tilesOnBoard =
+        match Map.tryFind (nextCoord coord dir ) tilesOnBoard with
+        |None -> false
+        |Some (_,(_,_)) -> true
     
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
@@ -118,7 +122,9 @@ module Scrabble =
                             |None -> best
                             |Some (b,d) ->
                                 let currentWord = tilePlacement :: acc
-                                let newBest = if b then bestWord best currentWord else best
+                                let newBest = if b && not (tileOnNextCoord coord dir tilesOnBoard)
+                                              then bestWord best currentWord
+                                              else best
                                 aux newBest currentWord (nextCoord coord dir) d newHand
                             ) longestWord hand
                 else
