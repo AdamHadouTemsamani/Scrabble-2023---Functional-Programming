@@ -39,7 +39,13 @@ module State =
     // Currently, it only keeps track of your hand, your player number, your board, and your dictionary,
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
-
+    
+    type dir =
+        |RIGHT
+        |DOWN
+    
+    type anchor = coord * dir
+    
     type state = {
         board         : Parser.board
         dict          : ScrabbleUtil.Dictionary.Dict
@@ -47,10 +53,17 @@ module State =
         amountOfPlayers: uint32
         hand          : MultiSet.MultiSet<uint32>
         turnNumber    : uint32
+        anchorpoints  : Set<anchor>
     }
 
-    let mkState b d pn aop h tn= {board = b; dict = d;  playerNumber = pn; amountOfPlayers = aop; hand = h; turnNumber = tn } //keep track of player turn here
-    //let newMkState som tager højder for kun de nødvendige ting - word, playerId, playerTurn, board, numberofplayer(hvis vi gerne vil tage højde for mere end 2)
+    let mkState b d pn aop h tn= {board = b;
+                                  dict = d;
+                                  playerNumber = pn;
+                                  amountOfPlayers = aop;
+                                  hand = h;
+                                  turnNumber = tn
+                                  anchorpoints = Set.empty}
+    
 
     let board st         = st.board
     let dict st          = st.dict
@@ -59,25 +72,6 @@ module State =
     let hand st          = st.hand
     let turnNumber st = st.turnNumber
     
-    let updateBoard addedTiles (st:state) =
-        let updated = List.fold (fun newBoard newTile -> Map.add (fst newTile) (snd newTile) newBoard) st.board.placedTiles addedTiles
-        {st with board = {st.board with placedTiles = updated}}
-        
-    let updateHand placedTiles receivedTiles (st:state)=
-        let reduced = List.fold (fun newHand tile -> MultiSet.remove (fst (snd tile)) 1u newHand) st.hand placedTiles
-        let updated = List.fold (fun newHand tile ->MultiSet.add (fst tile) (snd tile) newHand) reduced receivedTiles
-        {st with hand = updated}
-    
-    let updateState st playedTiles receivedTiles newTurnNumber =
-        {st with turnNumber = newTurnNumber}|>updateBoard playedTiles |> updateHand playedTiles receivedTiles 
-
-module Scrabble =
-    open System.Threading
-    
-    type dir =
-        |RIGHT
-        |DOWN
-        
     let nextCoord (x, y) dir =
         match dir with
             |RIGHT -> (x+1,y)
@@ -88,6 +82,35 @@ module Scrabble =
             |RIGHT -> (x-1,y)
             |DOWN -> (x, y-1)
     
+    let updateAnchorPoints st =
+        let rec back coord set dir =
+            function
+            | 0u -> set
+            | n -> back (prevCoord coord dir) (Set.add (coord,dir) set) dir (n-1u)
+        
+        let tempSet = Map.fold (fun acc key _ -> back key acc DOWN (MultiSet.size st.hand)) Set.empty st.board.placedTiles
+        Map.fold (fun acc key _ -> back key acc RIGHT (MultiSet.size st.hand)) tempSet st.board.placedTiles
+        
+        
+       
+    
+    let updateBoard addedTiles (st:state) =
+        let updated = List.fold (fun newBoard newTile -> Map.add (fst newTile) (snd newTile) newBoard) st.board.placedTiles addedTiles
+        {st with board = {st.board with placedTiles = updated}}
+        
+    let updateHand placedTiles receivedTiles (st:state)=
+        let reduced = List.fold (fun newHand tile -> MultiSet.removeSingle (fst (snd tile)) newHand) st.hand placedTiles
+        let updated = List.fold (fun newHand tile ->MultiSet.add (fst tile) (snd tile) newHand) reduced receivedTiles
+        {st with hand = updated}
+    
+    let updateState st playedTiles receivedTiles newTurnNumber =
+        {st with turnNumber = newTurnNumber} |> updateHand playedTiles receivedTiles |> updateBoard playedTiles
+
+module Scrabble =
+    open System.Threading
+    open State
+        
+        
     let checkIfCoordNotSurrounded coord dir tilesOnBoard =
         match dir with
                 |RIGHT -> match Map.tryFind (prevCoord coord DOWN) tilesOnBoard with
@@ -108,7 +131,7 @@ module Scrabble =
     
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
-    let mkWordFromCoord startChoord dir startDict startHand tiles tilesOnBoard =
+    let mkWordFromCoord startCoord dir startDict startHand tiles tilesOnBoard =
         let rec aux longestWord acc coord dict hand =
             match Map.tryFind coord tilesOnBoard with
             |None ->
@@ -117,7 +140,7 @@ module Scrabble =
                             let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
                             let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
                             let tilePlacement = (coord,(key,(handTile,pointValue)))
-                            let newHand = MultiSet.remove key 1u hand
+                            let newHand = MultiSet.removeSingle key hand
                             match Dictionary.step handTile dict with
                             |None -> best
                             |Some (b,d) ->
@@ -136,26 +159,23 @@ module Scrabble =
                     |None -> longestWord
                     |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand
                 |Some (_,(_,_)) -> longestWord
-        aux [] [] startChoord startDict startHand
+        
+        aux [] [] startCoord startDict startHand
+         
     
-    let playGame cstream pieces (st : State.state) =
+    let playGame cstream pieces (st : state) =
 
-        let rec aux (st : State.state) = 
+        let rec aux (st : state) = 
             if (st.turnNumber % st.amountOfPlayers) + 1u = st.playerNumber then 
-                Print.printHand pieces (State.hand st)
+                Print.printHand pieces (hand st)
 
                 let move =
                     if Map.isEmpty st.board.placedTiles
                     then
-                        let findWord = Async.Parallel[async {return mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles};
-                                                      async {return mkWordFromCoord (0,0) DOWN st.dict st.hand pieces st.board.placedTiles}]
-                                                      |> Async.RunSynchronously
-                        bestWord findWord[0] findWord[1]
+                        mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles
                     else
-                        let findWord = Async.Parallel[async {return Map.fold (fun acc key _ -> mkWordFromCoord key RIGHT st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles};
-                                                      async {return Map.fold (fun acc key _ -> mkWordFromCoord key DOWN st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles}]
-                                                      |> Async.RunSynchronously
-                        bestWord findWord[0] findWord[1]
+                        updateAnchorPoints st |>
+                        Set.fold (fun acc (coord,dir) -> mkWordFromCoord coord dir st.dict st.hand pieces st.board.placedTiles |> bestWord acc) []
                         
                 //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
                 send cstream (SMPlay move) //
@@ -165,13 +185,13 @@ module Scrabble =
 
             match msg with
             | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->
-                (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = State.updateState st placedTiles newPieces (st.turnNumber + 1u)
+                (* Successful play by you. Update your state (removeSingle old tiles, add the new ones, change turn, etc) *)
+                let st' = updateState st placedTiles newPieces (st.turnNumber + 1u)
                 
                 aux st'
             | RCM (CMPlayed (pid, placedTiles, points)) ->
                 (* Successful play by other player. Update your state *)
-                let st' = {st with turnNumber = st.turnNumber + 1u} |> State.updateBoard placedTiles
+                let st' = {st with turnNumber = st.turnNumber + 1u} |> updateBoard placedTiles
                 aux st'
             | RCM (CMPlayFailed (pid, attemptedMove)) ->
                 (* Failed play. Update your state *)
