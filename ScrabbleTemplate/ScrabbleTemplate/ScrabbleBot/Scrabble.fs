@@ -44,27 +44,32 @@ module State =
         board         : Parser.board
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
+        amountOfPlayers: uint32
         hand          : MultiSet.MultiSet<uint32>
-        //player turn? - uint32
+        turnNumber    : uint32
     }
 
-    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h } //keep track of player turn here
+    let mkState b d pn aop h tn= {board = b; dict = d;  playerNumber = pn; amountOfPlayers = aop; hand = h; turnNumber = tn } //keep track of player turn here
     //let newMkState som tager højder for kun de nødvendige ting - word, playerId, playerTurn, board, numberofplayer(hvis vi gerne vil tage højde for mere end 2)
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
+    let amountOfPlayers st = st.amountOfPlayers
     let hand st          = st.hand
+    let turnNumber st = st.turnNumber
     
-    let updateBoard (st:state) addedTiles =
+    let updateBoard addedTiles (st:state) =
         let updated = List.fold (fun newBoard newTile -> Map.add (fst newTile) (snd newTile) newBoard) st.board.placedTiles addedTiles
         {st with board = {st.board with placedTiles = updated}}
         
-    let updateHand (st:state) placedTiles receivedTiles =
+    let updateHand placedTiles receivedTiles (st:state)=
         let reduced = List.fold (fun newHand tile -> MultiSet.remove (fst (snd tile)) 1u newHand) st.hand placedTiles
         let updated = List.fold (fun newHand tile ->MultiSet.add (fst tile) (snd tile) newHand) reduced receivedTiles
         {st with hand = updated}
     
+    let updateState st playedTiles receivedTiles newTurnNumber =
+        {st with turnNumber = newTurnNumber}|>updateBoard playedTiles |> updateHand playedTiles receivedTiles 
 
 module Scrabble =
     open System.Threading
@@ -130,40 +135,39 @@ module Scrabble =
     let playGame cstream pieces (st : State.state) =
 
         let rec aux (st : State.state) = //shouldPlay bool inkluderet her? - if statement om det hele? hvis det er spiller tur, ellers så recv stream?
-            Print.printHand pieces (State.hand st)
+            if (st.turnNumber % st.amountOfPlayers) + 1u = st.playerNumber then 
+                Print.printHand pieces (State.hand st)
 
-            let move =
-                if Map.isEmpty st.board.placedTiles
-                then
-                    let moveRight = mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles 
-                    let moveDown = mkWordFromCoord (0,0) DOWN st.dict st.hand pieces st.board.placedTiles 
-                    bestWord moveRight moveDown
-                else
-                    let moveRight = Map.fold (fun acc key _ -> mkWordFromCoord key RIGHT st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
-                    let moveDown = Map.fold (fun acc key _ -> mkWordFromCoord key DOWN st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
-                    bestWord moveRight moveDown
-                    
-            debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move) //
+                let move =
+                    if Map.isEmpty st.board.placedTiles
+                    then
+                        let moveRight = mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles 
+                        let moveDown = mkWordFromCoord (0,0) DOWN st.dict st.hand pieces st.board.placedTiles 
+                        bestWord moveRight moveDown
+                    else
+                        let moveRight = Map.fold (fun acc key _ -> mkWordFromCoord key RIGHT st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
+                        let moveDown = Map.fold (fun acc key _ -> mkWordFromCoord key DOWN st.dict st.hand pieces st.board.placedTiles |> bestWord acc) [] st.board.placedTiles
+                        bestWord moveRight moveDown
+                        
+                //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+                send cstream (SMPlay move) //
 
             let msg = recv cstream
-            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(placedTiles, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = State.updateBoard st placedTiles// This state needs to be updated
-                let st' = State.updateHand st' placedTiles newPieces
-                //let st' = mkState alle parameter (nyt board)
+                let st' = State.updateState st placedTiles newPieces (st.turnNumber + 1u)
+                
                 aux st'
             | RCM (CMPlayed (pid, placedTiles, points)) ->
                 (* Successful play by other player. Update your state *)
-                let st' = State.updateBoard st placedTiles // This state needs to be updated
-                //let st' = mkState alle parameter (nyt board)
+                let st' = {st with turnNumber = st.turnNumber + 1u} |> State.updateBoard placedTiles
                 aux st'
             | RCM (CMPlayFailed (pid, attemptedMove)) ->
                 (* Failed play. Update your state *)
-                let st' = st // This state needs to be updated
+                let st' = {st with turnNumber = st.turnNumber + 1u}
                 aux st' 
             | RCM (CMGameOver _) -> ()
             | RCM a -> failwith (sprintf "not implmented: %A" a)
@@ -194,5 +198,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers handSet 0u)
         
