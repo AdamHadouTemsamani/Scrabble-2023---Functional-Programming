@@ -198,7 +198,15 @@ module Scrabble =
                 let st' = {st with turnNumber = st.turnNumber + 1u}
                 aux st' 
             | RCM (CMGameOver _) -> ()
-            | RCM a -> failwith (sprintf "not implmented: %A" a)
+            | RCM (CMPassed _) | RCM (CMTimeout _) ->
+                let st' = {st with turnNumber = st.turnNumber + 1u}
+                aux st'
+            | RCM (CMChange _) ->
+                let st' = {st with turnNumber = st.turnNumber + 1u}
+                aux st'
+            | RCM (CMForfeit _) ->
+                let st' = {st with amountOfPlayers = st.amountOfPlayers - 1u}
+                aux st'
             | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
         aux st
 

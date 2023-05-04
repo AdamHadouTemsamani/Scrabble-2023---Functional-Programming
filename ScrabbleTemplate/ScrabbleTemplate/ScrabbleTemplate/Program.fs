@@ -53,7 +53,7 @@ let main argv =
     let (dictionary, time) =
         time (fun () -> ScrabbleUtil.Dictionary.mkDict words dictAPI)
 
-    let players = spawnMultiples "ourBot" dictionary DaiBakaBot.Scrabble.startGame 2
+    let players = spawnMultiples "DaiBakaBot" dictionary DaiBakaBot.Scrabble.startGame 2
 
 
     do ScrabbleServer.Comm.startGame 
