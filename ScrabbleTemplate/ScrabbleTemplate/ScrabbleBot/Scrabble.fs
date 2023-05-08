@@ -128,6 +128,11 @@ module Scrabble =
         match Map.tryFind (nextCoord coord dir ) tilesOnBoard with
         |None -> false
         |Some (_,(_,_)) -> true
+        
+    let tileOnPrevCoord coord dir tilesOnBoard =
+        match Map.tryFind (prevCoord coord dir) tilesOnBoard with
+        |None -> false
+        |Some _ -> true
     
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
@@ -160,7 +165,9 @@ module Scrabble =
                     |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand true
                 |Some (_,(_,_)) -> longestWord
         let first = startCoord = (0,0)
-        aux [] [] startCoord startDict startHand first
+        if tileOnPrevCoord startCoord dir tilesOnBoard
+        then []
+        else aux [] [] startCoord startDict startHand first
          
     
     let playGame cstream pieces (st : state) =
