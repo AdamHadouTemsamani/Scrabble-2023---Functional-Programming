@@ -214,7 +214,9 @@ module Scrabble =
             | RCM (CMForfeit _) ->
                 let st' = {st with amountOfPlayers = st.amountOfPlayers - 1u}
                 aux st'
-            | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
+            | RGPE err ->
+                let st' = {st with turnNumber = st.turnNumber + 1u}
+                aux st'
         aux st
 
     let startGame 
