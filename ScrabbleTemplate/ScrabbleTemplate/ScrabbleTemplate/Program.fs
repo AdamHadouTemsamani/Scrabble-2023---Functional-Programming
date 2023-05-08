@@ -49,11 +49,12 @@ let main argv =
         Some (Dictionary.empty, Dictionary.insert, Dictionary.step, None) 
         
     // Uncomment this line to call your client
-    // let players    = [("Your name here", YourClientName.Scrabble.startGame)]
+    
     let (dictionary, time) =
         time (fun () -> ScrabbleUtil.Dictionary.mkDict words dictAPI)
 
-    let players = spawnMultiples "DaiBakaBot" dictionary DaiBakaBot.Scrabble.startGame 2
+    let players    = [("dumb idiot",dictionary, DaiBakaBot.Scrabble.startGame); ("Jesper",dictionary, Oxyphenbutazone.Scrabble.startGame)]
+    //let players = spawnMultiples "DaiBakaBot" dictionary DaiBakaBot.Scrabble.startGame 2
 
 
     do ScrabbleServer.Comm.startGame 

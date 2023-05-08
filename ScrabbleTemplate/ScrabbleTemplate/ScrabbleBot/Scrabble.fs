@@ -137,33 +137,31 @@ module Scrabble =
     let bestWord l1 l2 = if List.length l1 > List.length l2 then l1 else l2
   
     let mkWordFromCoord startCoord dir startDict startHand tiles tilesOnBoard =
-        let rec aux longestWord acc coord dict hand intersects =
+        let rec aux longestWord wordInProgress coord dict hand intersects =
             match Map.tryFind coord tilesOnBoard with
             |None ->
                 if checkIfCoordNotSurrounded coord dir tilesOnBoard then 
                     MultiSet.fold (fun best key _ ->
-                            let handTile = Map.find key tiles |> Set.toList |> List.item 0 |> fst
-                            let pointValue = Map.find key tiles |> Set.toList |> List.item 0 |> snd
-                            let tilePlacement = (coord,(key,(handTile,pointValue)))
-                            let newHand = MultiSet.removeSingle key hand
-                            match Dictionary.step handTile dict with
-                            |None -> best
-                            |Some (b,d) ->
-                                let currentWord = tilePlacement :: acc
-                                let newBest = if b && not (tileOnNextCoord coord dir tilesOnBoard) && intersects
-                                              then bestWord best currentWord
-                                              else best
-                                aux newBest currentWord (nextCoord coord dir) d newHand intersects
+                            let handTile = Map.find key tiles
+                            Set.fold (fun best1 (cv,pv) ->
+                                    let tilePlacement = (coord,(key,(cv,pv)))
+                                    let newHand = MultiSet.removeSingle key hand
+                                    match Dictionary.step cv dict with
+                                    |None -> best1
+                                    |Some (b,d) ->
+                                        let currentWord = tilePlacement :: wordInProgress
+                                        let newBest = if b && not (tileOnNextCoord coord dir tilesOnBoard) && intersects
+                                                      then bestWord best currentWord
+                                                      else best
+                                        aux newBest currentWord (nextCoord coord dir) d newHand intersects
+                                ) best handTile
                             ) longestWord hand
                 else
                     longestWord
             |Some (_,(cv, _)) ->
-                match Map.tryFind (prevCoord coord dir) tilesOnBoard with
-                |None ->
-                    match Dictionary.step cv dict with
-                    |None -> longestWord
-                    |Some (_,d) -> aux longestWord acc (nextCoord coord dir) d hand true
-                |Some (_,(_,_)) -> longestWord
+                match Dictionary.step cv dict with
+                |None -> longestWord
+                |Some (_,d) -> aux longestWord wordInProgress (nextCoord coord dir) d hand true
         let first = startCoord = (0,0)
         if tileOnPrevCoord startCoord dir tilesOnBoard
         then []
@@ -185,7 +183,9 @@ module Scrabble =
                         Set.fold (fun acc (coord,dir) -> mkWordFromCoord coord dir st.dict st.hand pieces st.board.placedTiles |> bestWord acc) []
                         
                 //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-                send cstream (SMPlay move) //
+                if List.isEmpty move
+                then send cstream SMPass
+                else send cstream (SMPlay move) //
 
             let msg = recv cstream
             //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
