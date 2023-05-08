@@ -181,9 +181,10 @@ module Scrabble =
                     then
                         mkWordFromCoord (0,0) RIGHT st.dict st.hand pieces st.board.placedTiles
                     else
-                        updateAnchorPoints st |>
-                        Set.fold (fun acc (coord,dir) -> mkWordFromCoord coord dir st.dict st.hand pieces st.board.placedTiles |> bestWord acc) []
-                        
+                        let ls =  updateAnchorPoints st |> Set.toArray |> Array.Parallel.map (fun (coord,dir) -> mkWordFromCoord coord dir st.dict st.hand pieces st.board.placedTiles)
+                        Array.fold (fun acc res -> res |> bestWord acc) [] ls
+  
+                   
                 //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
                 send cstream (SMPlay move) //
 
