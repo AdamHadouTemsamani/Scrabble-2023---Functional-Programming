@@ -172,7 +172,6 @@ module Scrabble =
 
         let rec aux (st : state) = 
             if (st.turnNumber % st.amountOfPlayers) + 1u = st.playerNumber then 
-                Print.printHand pieces (hand st)
 
                 let move =
                     if Map.isEmpty st.board.placedTiles
